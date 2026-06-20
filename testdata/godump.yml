@@ -1,0 +1,64 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: godump-clickhouse
+    ports:
+      - "8123:8123"  # HTTP interface
+      - "9000:9000"  # Native protocol
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+      CLICKHOUSE_PASSWORD: ""
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse-init:/docker-entrypoint-initdb.d
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  fake-gcs-server:
+    image: fsouza/fake-gcs-server:latest
+    container_name: godump-fake-gcs
+    ports:
+      - "4443:4443"
+    command: -scheme http -external-url http://localhost:4443
+    volumes:
+      - fake_gcs_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4443/storage/v1/b"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  godump:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: godump-server
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_PORT: 8080
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 9000
+      GCS_BUCKET_NAME: http-dumps
+      GCS_USE_EMULATOR: "true"
+      STORAGE_EMULATOR_HOST: http://fake-gcs-server:4443/storage/v1/
+      LOG_LEVEL: debug
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      fake-gcs-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  clickhouse_data:
+  fake_gcs_data:

@@ -230,6 +230,36 @@ func TestRenderMergedProducesSVG(t *testing.T) {
 	})
 }
 
+func TestParseGraph(t *testing.T) {
+	Convey("Given a compose file with two services and one edge", t, func() {
+		src := []byte("services:\n  api:\n    image: api\n    depends_on: [db]\n  db:\n    image: db\n")
+
+		Convey("When parsed", func() {
+			g, format, err := composegraph.ParseGraph(src)
+
+			Convey("Then it reports the format and the structured graph", func() {
+				So(err, ShouldBeNil)
+				So(format, ShouldEqual, "compose")
+				So(len(g.Nodes), ShouldEqual, 2)
+				So(len(g.Edges), ShouldEqual, 1)
+			})
+		})
+	})
+
+	Convey("Given a Kubernetes Service manifest", t, func() {
+		src := []byte("apiVersion: v1\nkind: Service\nmetadata:\n  name: api\nspec:\n  selector: {app: api}\n")
+
+		Convey("When parsed", func() {
+			_, format, err := composegraph.ParseGraph(src)
+
+			Convey("Then it reports the k8s format", func() {
+				So(err, ShouldBeNil)
+				So(format, ShouldEqual, "k8s")
+			})
+		})
+	})
+}
+
 func TestRenderProducesSVG(t *testing.T) {
 	Convey("Given a simple compose file", t, func() {
 		src := []byte(`

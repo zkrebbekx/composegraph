@@ -25,23 +25,36 @@ import (
 // ToMermaid parses a docker-compose or Kubernetes manifest YAML document
 // and returns the equivalent Mermaid flowchart source.
 func ToMermaid(src []byte) (string, error) {
-	format, err := detectFormat(src)
+	g, _, err := ParseGraph(src)
 	if err != nil {
 		return "", err
+	}
+	return toMermaid(g), nil
+}
+
+// ParseGraph parses a docker-compose or Kubernetes manifest YAML document
+// into its dependency [Graph] and reports which format was detected
+// ("compose" or "k8s"). Most callers want [ToMermaid] or [Render]; this is
+// for callers that want the structured graph itself — e.g. to report node/
+// edge counts, or build a different renderer entirely.
+func ParseGraph(src []byte) (*Graph, string, error) {
+	format, err := detectFormat(src)
+	if err != nil {
+		return nil, "", err
 	}
 	switch format {
 	case "compose":
 		cf, err := parseCompose(src)
 		if err != nil {
-			return "", fmt.Errorf("composegraph: %w", err)
+			return nil, "", fmt.Errorf("composegraph: %w", err)
 		}
-		return toMermaid(buildComposeGraph(cf)), nil
+		return buildComposeGraph(cf), format, nil
 	default: // "k8s"
 		resources, err := parseK8sResources(src)
 		if err != nil {
-			return "", fmt.Errorf("composegraph: %w", err)
+			return nil, "", fmt.Errorf("composegraph: %w", err)
 		}
-		return toMermaid(buildK8sGraph(resources)), nil
+		return buildK8sGraph(resources), format, nil
 	}
 }
 

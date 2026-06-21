@@ -9,6 +9,18 @@ SVG — in **pure Go**, via [go-mermaid](https://github.com/zkrebbekx/go-mermaid
 No headless browser, no Node.js, no Graphviz. Just a library and a single
 static binary.
 
+### ▶ [Try it live in your browser → zkrebbekx.github.io/composegraph](https://zkrebbekx.github.io/composegraph/)
+
+Paste a compose file or a Kubernetes manifest and watch it render instantly —
+diagram, raw Mermaid source, and a nodes/edges breakdown, running 100%
+client-side (no server, your YAML never leaves the tab).
+
+> The **library** (`github.com/zkrebbekx/composegraph`) is **pure Go with no
+> WebAssembly** — nothing you import pulls in a wasm runtime. WebAssembly is
+> used *only* by the separate [`playground/`](playground) module, which
+> compiles the library to a `GOOS=js` build so it can run in the browser.
+> Importing composegraph into your Go program involves no wasm.
+
 ## Why
 
 A compose file or a manifest set encodes a real dependency graph

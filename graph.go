@@ -2,45 +2,35 @@ package composegraph
 
 import "sort"
 
-// EdgeKind distinguishes the compose relationship an [Edge] represents.
-type EdgeKind int
-
-const (
-	// DependsOn is a `depends_on` relationship.
-	DependsOn EdgeKind = iota
-	// VolumesFrom is a `volumes_from` relationship.
-	VolumesFrom
-)
-
-// Node is one service in the compose file.
+// Node is one resource in the dependency graph.
 type Node struct {
-	// Name is the service name (the map key under `services:`).
-	Name string
-	// Group is the subgraph this node is clustered under (its first network,
-	// alphabetically, or "default" if it declares none). Empty when the
-	// compose file uses no `networks:` keys at all, so no grouping applies.
+	// Key uniquely identifies the node (used for edge endpoints and as the
+	// basis for its Mermaid ID); Name is what's displayed.
+	Key, Name string
+	// Group is the subgraph this node is clustered under (a compose
+	// network, or a Kubernetes namespace). Empty if ungrouped.
 	Group string
-	// HasHealthCheck reports whether the service declares a healthcheck.
-	HasHealthCheck bool
+	// Shape selects the Mermaid shape: "" (rectangle), "stadium", "rounded",
+	// "hexagon", or "cylinder".
+	Shape string
 }
 
-// Edge is a directed relationship between two services.
+// Edge is a directed relationship between two nodes.
 type Edge struct {
 	From, To string
-	Kind     EdgeKind
-	// Label is shown on the edge; empty for a plain dependency.
+	// Label is shown on the edge; empty for a plain relationship.
 	Label string
 }
 
-// Graph is the dependency graph extracted from a compose file. Nodes and
-// Edges are sorted for deterministic output.
+// Graph is the dependency graph extracted from an input file. Nodes and
+// Edges are in deterministic order.
 type Graph struct {
 	Nodes []Node
 	Edges []Edge
 }
 
-// buildGraph converts a parsed compose file into a [Graph].
-func buildGraph(cf *composeFile) *Graph {
+// buildComposeGraph converts a parsed compose file into a [Graph].
+func buildComposeGraph(cf *composeFile) *Graph {
 	names := make([]string, 0, len(cf.Services))
 	for name := range cf.Services {
 		names = append(names, name)
@@ -58,7 +48,10 @@ func buildGraph(cf *composeFile) *Graph {
 	g := &Graph{}
 	for _, name := range names {
 		svc := cf.Services[name]
-		node := Node{Name: name, HasHealthCheck: svc.HealthCheck != nil}
+		node := Node{Key: name, Name: name}
+		if svc.HealthCheck != nil {
+			node.Shape = "stadium"
+		}
 		if anyExplicitNetworks {
 			node.Group = firstNetwork(svc.Networks)
 		}
@@ -68,7 +61,6 @@ func buildGraph(cf *composeFile) *Graph {
 			g.Edges = append(g.Edges, Edge{
 				From:  name,
 				To:    dep,
-				Kind:  DependsOn,
 				Label: conditionLabel(svc.DependsOn[dep].Condition),
 			})
 		}
@@ -76,7 +68,7 @@ func buildGraph(cf *composeFile) *Graph {
 		volTargets := append([]string(nil), svc.VolumesFrom...)
 		sort.Strings(volTargets)
 		for _, target := range volTargets {
-			g.Edges = append(g.Edges, Edge{From: name, To: target, Kind: VolumesFrom, Label: "volumes"})
+			g.Edges = append(g.Edges, Edge{From: name, To: target, Label: "volumes"})
 		}
 	}
 	return g

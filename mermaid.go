@@ -6,37 +6,28 @@ import (
 	"strings"
 )
 
-// toMermaid renders g as Mermaid flowchart source. Services sharing a
-// network are grouped into a subgraph; services with no `networks:`
-// declared anywhere in the file are left ungrouped.
+// toMermaid renders g as Mermaid flowchart source. Nodes sharing a Group
+// are clustered into a subgraph; ungrouped nodes are emitted at the top
+// level alongside those blocks.
 func toMermaid(g *Graph) string {
 	var b strings.Builder
 	b.WriteString("graph LR\n")
 
 	ids := nodeIDs(g.Nodes)
 
-	grouped := false
 	for _, n := range g.Nodes {
-		if n.Group != "" {
-			grouped = true
-			break
+		if n.Group == "" {
+			writeNode(&b, "  ", ids[n.Key], n)
 		}
 	}
-
-	if grouped {
-		for _, group := range sortedGroups(g.Nodes) {
-			fmt.Fprintf(&b, "  subgraph net_%s [%s]\n", sanitizeID(group), group)
-			for _, n := range g.Nodes {
-				if n.Group == group {
-					writeNode(&b, "    ", ids[n.Name], n)
-				}
-			}
-			b.WriteString("  end\n")
-		}
-	} else {
+	for _, group := range sortedGroups(g.Nodes) {
+		fmt.Fprintf(&b, "  subgraph net_%s [%s]\n", sanitizeID(group), group)
 		for _, n := range g.Nodes {
-			writeNode(&b, "  ", ids[n.Name], n)
+			if n.Group == group {
+				writeNode(&b, "    ", ids[n.Key], n)
+			}
 		}
+		b.WriteString("  end\n")
 	}
 
 	for _, e := range g.Edges {
@@ -59,9 +50,16 @@ func toMermaid(g *Graph) string {
 }
 
 func writeNode(b *strings.Builder, indent, id string, n Node) {
-	if n.HasHealthCheck {
+	switch n.Shape {
+	case "stadium":
 		fmt.Fprintf(b, "%s%s([%s])\n", indent, id, n.Name)
-	} else {
+	case "rounded":
+		fmt.Fprintf(b, "%s%s(%s)\n", indent, id, n.Name)
+	case "hexagon":
+		fmt.Fprintf(b, "%s%s{{%s}}\n", indent, id, n.Name)
+	case "cylinder":
+		fmt.Fprintf(b, "%s%s[(%s)]\n", indent, id, n.Name)
+	default:
 		fmt.Fprintf(b, "%s%s[%s]\n", indent, id, n.Name)
 	}
 }
@@ -70,7 +68,7 @@ func sortedGroups(nodes []Node) []string {
 	seen := map[string]bool{}
 	var groups []string
 	for _, n := range nodes {
-		if !seen[n.Group] {
+		if n.Group != "" && !seen[n.Group] {
 			seen[n.Group] = true
 			groups = append(groups, n.Group)
 		}
@@ -79,25 +77,21 @@ func sortedGroups(nodes []Node) []string {
 	return groups
 }
 
-// nodeIDs assigns each node a Mermaid-safe identifier, deduplicating any
-// collisions produced by sanitization.
+// nodeIDs assigns each node a short, sequential Mermaid-safe identifier,
+// keyed by Node.Key. Sequential IDs sidestep sanitizing a node's own key
+// (which for Kubernetes resources is a composite like "ns/Kind/name") into
+// the diagram source; the original name survives as the node's label.
 func nodeIDs(nodes []Node) map[string]string {
 	ids := make(map[string]string, len(nodes))
-	used := make(map[string]bool, len(nodes))
-	for _, n := range nodes {
-		id := sanitizeID(n.Name)
-		for used[id] {
-			id += "_"
-		}
-		used[id] = true
-		ids[n.Name] = id
+	for i, n := range nodes {
+		ids[n.Key] = fmt.Sprintf("n%d", i+1)
 	}
 	return ids
 }
 
-// sanitizeID maps a compose service name to a Mermaid node ID: letters,
-// digits, and underscores only (compose names may contain '.' and '-',
-// neither safe as a bare Mermaid ID).
+// sanitizeID maps an arbitrary key (used for group/subgraph IDs, and as a
+// fallback for an edge endpoint with no matching node) to a Mermaid-safe
+// identifier: letters, digits, and underscores only.
 func sanitizeID(name string) string {
 	var b strings.Builder
 	for _, r := range name {

@@ -24,8 +24,8 @@ services:
 
 			Convey("Then both services appear as plain rectangle nodes, ungrouped", func() {
 				So(err, ShouldBeNil)
-				So(mmd, ShouldContainSubstring, "api[api]")
-				So(mmd, ShouldContainSubstring, "db[db]")
+				So(mmd, ShouldContainSubstring, "n1[api]")
+				So(mmd, ShouldContainSubstring, "n2[db]")
 				So(mmd, ShouldNotContainSubstring, "subgraph")
 			})
 		})
@@ -46,7 +46,7 @@ services:
 
 			Convey("Then it is a plain unlabeled edge", func() {
 				So(err, ShouldBeNil)
-				So(mmd, ShouldContainSubstring, "api --> db\n")
+				So(mmd, ShouldContainSubstring, "n1 --> n2\n")
 			})
 		})
 	})
@@ -67,7 +67,7 @@ services:
 
 			Convey("Then the edge is labeled with the condition, service_ prefix stripped", func() {
 				So(err, ShouldBeNil)
-				So(mmd, ShouldContainSubstring, "api -->|healthy| db")
+				So(mmd, ShouldContainSubstring, "n1 -->|healthy| n2")
 			})
 		})
 	})
@@ -106,7 +106,7 @@ services:
 
 			Convey("Then it renders as a stadium-shaped node", func() {
 				So(err, ShouldBeNil)
-				So(mmd, ShouldContainSubstring, "db([db])")
+				So(mmd, ShouldContainSubstring, "n1([db])")
 			})
 		})
 	})
@@ -126,7 +126,7 @@ services:
 
 			Convey("Then the edge is labeled volumes", func() {
 				So(err, ShouldBeNil)
-				So(mmd, ShouldContainSubstring, "app -->|volumes| data")
+				So(mmd, ShouldContainSubstring, "n1 -->|volumes| n2")
 			})
 		})
 	})
@@ -140,9 +140,9 @@ services:
 		Convey("When converted to Mermaid", func() {
 			mmd, err := composegraph.ToMermaid(src)
 
-			Convey("Then the node ID is sanitized but the original name is kept as the label", func() {
+			Convey("Then the name is kept verbatim as the label, addressed by a generated ID", func() {
 				So(err, ShouldBeNil)
-				So(mmd, ShouldContainSubstring, "fake_gcs_server[fake-gcs.server]")
+				So(mmd, ShouldContainSubstring, "n1[fake-gcs.server]")
 			})
 		})
 	})
@@ -155,6 +155,76 @@ services:
 
 			Convey("Then it returns an error", func() {
 				So(err, ShouldNotBeNil)
+			})
+		})
+	})
+}
+
+func TestToMermaidMerged(t *testing.T) {
+	Convey("Given a base compose file and an override adding a healthcheck and a new service", t, func() {
+		base := []byte(`
+services:
+  api:
+    image: api
+    depends_on: [db]
+  db:
+    image: db
+`)
+		override := []byte(`
+services:
+  api:
+    healthcheck:
+      test: ["CMD", "true"]
+  cache:
+    image: redis
+`)
+		Convey("When merged and converted to Mermaid", func() {
+			mmd, err := composegraph.ToMermaidMerged([][]byte{base, override})
+
+			Convey("Then the override's healthcheck and new service are folded in, depends_on is kept", func() {
+				So(err, ShouldBeNil)
+				So(mmd, ShouldContainSubstring, "([api])") // healthcheck from override -> stadium
+				So(mmd, ShouldContainSubstring, "[cache]")
+				So(mmd, ShouldContainSubstring, "[db]")
+				So(mmd, ShouldContainSubstring, "--> n3\n") // api -> db preserved (db sorts 3rd: api, cache, db)
+			})
+		})
+	})
+
+	Convey("Given an override that adds a network to an existing service", t, func() {
+		base := []byte(`
+services:
+  api:
+    image: api
+    networks: [front]
+`)
+		override := []byte(`
+services:
+  api:
+    networks: [back]
+`)
+		Convey("When merged", func() {
+			mmd, err := composegraph.ToMermaidMerged([][]byte{base, override})
+
+			Convey("Then both networks are present (union, not replace)", func() {
+				So(err, ShouldBeNil)
+				So(mmd, ShouldContainSubstring, "subgraph net_back [back]")
+			})
+		})
+	})
+}
+
+func TestRenderMergedProducesSVG(t *testing.T) {
+	Convey("Given two compose files to merge", t, func() {
+		base := []byte("services:\n  api:\n    image: api\n")
+		override := []byte("services:\n  db:\n    image: db\n")
+
+		Convey("When rendered", func() {
+			svg, err := composegraph.RenderMerged([][]byte{base, override})
+
+			Convey("Then it produces valid SVG output", func() {
+				So(err, ShouldBeNil)
+				So(string(svg), ShouldContainSubstring, "<svg")
 			})
 		})
 	})

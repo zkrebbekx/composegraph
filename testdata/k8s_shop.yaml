@@ -1,0 +1,122 @@
+# Hand-written, illustrative manifest bundle exercising the shapes a real
+# `kubectl get all,cm,secret,ingress -o yaml` dump or a checked-in manifest
+# set would produce: two namespaces, a probed Deployment with ConfigMap/
+# Secret refs, a StatefulSet without a probe, Service selector matching,
+# an Ingress → Service chain, and an ownerReference ownership chain
+# (Deployment → ReplicaSet → Pod) of the kind a live-cluster dump carries.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shop
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: shop
+data:
+  LOG_LEVEL: info
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+  namespace: shop
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: shop
+spec:
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+        - name: app
+          image: app:latest
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          envFrom:
+            - configMapRef:
+                name: app-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: password
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: app-7f8c9
+  namespace: shop
+  ownerReferences:
+    - kind: Deployment
+      name: app
+spec:
+  template:
+    metadata:
+      labels:
+        app: app
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-7f8c9-x2z9k
+  namespace: shop
+  ownerReferences:
+    - kind: ReplicaSet
+      name: app-7f8c9
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-svc
+  namespace: shop
+spec:
+  selector:
+    app: app
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  namespace: shop
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            backend:
+              service:
+                name: app-svc
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: data
+spec:
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: db
+          image: postgres:16
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-svc
+  namespace: data
+spec:
+  selector:
+    app: db

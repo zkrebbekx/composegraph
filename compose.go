@@ -87,3 +87,64 @@ func parseCompose(src []byte) (*composeFile, error) {
 	}
 	return &cf, nil
 }
+
+// mergeComposeFiles parses each document and merges them service-by-service
+// in order, base file first — the common docker-compose.yml +
+// docker-compose.override.yml pattern. This is a practical union merge, not
+// full compose merge semantics: a service present in more than one file has
+// its depends_on/networks/volumes_from unioned and its healthcheck replaced
+// if the later file sets one; there's no array-replace strategy or deep
+// merge of other fields.
+func mergeComposeFiles(srcs [][]byte) (*composeFile, error) {
+	merged := &composeFile{Services: map[string]composeService{}}
+	for _, src := range srcs {
+		cf, err := parseCompose(src)
+		if err != nil {
+			return nil, err
+		}
+		for name, svc := range cf.Services {
+			if existing, ok := merged.Services[name]; ok {
+				merged.Services[name] = mergeComposeService(existing, svc)
+			} else {
+				merged.Services[name] = svc
+			}
+		}
+	}
+	return merged, nil
+}
+
+func mergeComposeService(base, override composeService) composeService {
+	merged := base
+	if len(override.DependsOn) > 0 {
+		if merged.DependsOn == nil {
+			merged.DependsOn = dependsOn{}
+		}
+		for k, v := range override.DependsOn {
+			merged.DependsOn[k] = v
+		}
+	}
+	merged.Networks = unionStrings(merged.Networks, override.Networks)
+	merged.VolumesFrom = unionStrings(merged.VolumesFrom, override.VolumesFrom)
+	if override.HealthCheck != nil {
+		merged.HealthCheck = override.HealthCheck
+	}
+	return merged
+}
+
+func unionStrings(a, b []string) []string {
+	seen := make(map[string]bool, len(a)+len(b))
+	var out []string
+	for _, s := range a {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	for _, s := range b {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
+}

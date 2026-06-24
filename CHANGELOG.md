@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.2](https://github.com/zkrebbekx/composegraph/compare/v0.1.1...v0.1.2) (2026-06-24)
+
+
+### Features
+
+* add browser playground (WASM + GitHub Pages) ([08402d3](https://github.com/zkrebbekx/composegraph/commit/08402d3ce0fe61b66c9b2cd8a53ba7a331589c84))
+
+
+### Bug Fixes
+
+* stop .gitignore's *.html from swallowing playground/index.html ([e338023](https://github.com/zkrebbekx/composegraph/commit/e338023ed7747d1a970f46abb2ebe7465f9af2dc))
+
 ## [0.1.1](https://github.com/zkrebbekx/composegraph/compare/v0.1.0...v0.1.1) (2026-06-21)
 
 

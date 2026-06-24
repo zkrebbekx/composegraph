@@ -14,7 +14,7 @@ require (
 	github.com/smarty/assertions v1.15.0 // indirect
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
-	golang.org/x/image v0.38.0 // indirect
+	golang.org/x/image v0.43.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
 )

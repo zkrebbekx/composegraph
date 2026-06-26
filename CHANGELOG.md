@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/zkrebbekx/composegraph/compare/v0.1.2...v0.1.3) (2026-06-26)
+
+
+### Miscellaneous Chores
+
+* republish container image as 0.1.3 ([d0bcdca](https://github.com/zkrebbekx/composegraph/commit/d0bcdca6475d2b2805ada78bef54c58c26ea643f))
+
 ## [0.1.2](https://github.com/zkrebbekx/composegraph/compare/v0.1.1...v0.1.2) (2026-06-24)
 
 

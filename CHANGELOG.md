@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/zkrebbekx/composegraph/compare/v0.1.3...v0.1.4) (2026-09-10)
+
+
+### Bug Fixes
+
+* **deps:** patch the x/net advisory, take go-mermaid v0.1.6 ([#12](https://github.com/zkrebbekx/composegraph/issues/12)) ([a39f582](https://github.com/zkrebbekx/composegraph/commit/a39f582ed91f69e9333ad1e488445f254965df56))
+
 ## [0.1.3](https://github.com/zkrebbekx/composegraph/compare/v0.1.2...v0.1.3) (2026-06-26)
 
 

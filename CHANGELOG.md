@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/zkrebbekx/composegraph/compare/v0.1.4...v0.1.5) (2026-11-07)
+
+
+### Bug Fixes
+
+* **playground:** tidy the module so the wasm build runs again ([#16](https://github.com/zkrebbekx/composegraph/issues/16)) ([a05e64b](https://github.com/zkrebbekx/composegraph/commit/a05e64b1a4b5aebb1a8a33b187479ca2f05dee18))
+
 ## [0.1.4](https://github.com/zkrebbekx/composegraph/compare/v0.1.3...v0.1.4) (2026-09-10)
 
 
